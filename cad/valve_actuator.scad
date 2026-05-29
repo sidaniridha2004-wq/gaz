@@ -1,264 +1,250 @@
 // =============================================================================
 //  valve_actuator.scad
-//  Parametric 3D-printed gas valve actuator for MG996R servo + 1/4" ball valve
+//  Parametric 3D-printed SERVO-ACTUATED BALL VALVE mount (two-plate cage)
 // -----------------------------------------------------------------------------
-//  Assembly:
-//    1. Two-piece clamp (bolts around the valve body, reacts torque)
-//    2. Servo platform (bridges the clamp, holds the MG996R)
-//    3. Coupler arm (links servo horn spline to the valve handle)
+//  Style: matches the classic servo-actuated ball valve build -> two parallel
+//  plates sandwich the valve, joined by FOUR corner standoffs (the yellow rods
+//  in the reference photo). The MG996R servo bolts to the TOP plate with its
+//  output shaft COAXIAL to the valve stem and drives the stem directly through
+//  a coupler. The cage reacts all the torque so nothing twists on the pipe.
 //
-//  Units: millimeters. Print in PETG or PLA, 0.2mm layers, 4 walls, 50% infill.
-//  Author: Generated for the Gas Safety System project
+//      [ TOP PLATE ] <- servo bolts here, shaft on stem axis
+//        |  |  |  |    <- 4 standoffs (threaded rod + nuts, or printed)
+//      [ BOT PLATE ] <- valve body seats here
+//           ||         <- pipe passes out the sides
+//
+//  Force path: servo horn -> stem_coupler -> valve stem -> ball turns 90 deg.
+//
+//  PRINTED PARTS:
+//    1. bottom_plate   (x1)   seats the valve body, anchors the standoffs
+//    2. top_plate      (x1)   holds the servo + clears the stem coupler
+//    3. stem_coupler   (x1)   servo horn  ->  valve stem flats
+//    4. standoff       (x4)   OPTIONAL printed spacer; or use M4 threaded rod
+//
+//  Units = mm. Print PETG (preferred) / PLA, 0.2 mm layers, 4 walls,
+//  40-60% infill. The coupler is the load-critical part -> print it solid.
 // =============================================================================
 
-// ---- PARAMETERS (adjust to your valve + servo) -----------------------------
+// ============================ PARAMETERS =====================================
+// ---- VALVE (MEASURE YOURS with calipers and edit) --------------------------
+valve_body_od     = 28.0;  // round body outer diameter (where it sits in plate)
+valve_body_h      = 30.0;  // body height = gap set between the two plates
+pipe_od           = 14.0;  // pipe / union OD that exits the sides of the cage
+stem_dia          = 7.0;   // round diameter of the valve stem
+stem_flat_across  = 5.5;   // distance across the two stem flats (double-D)
+stem_flat_len     = 9.0;   // length of the flats down from the stem top
+stem_top_z        = 22.0;  // valve body top -> stem top (stem sticks up this far)
 
-// Ball valve body
-valve_body_od       = 28.0;    // outer diameter of the valve body (measure!)
-valve_body_length   = 30.0;    // how much of the body the clamp grips
-handle_height       = 15.0;    // center of handle above top of valve body
-handle_width        = 8.0;     // valve handle cross-section (flat/D shape)
-handle_thickness    = 4.0;     // handle thickness (for D-slot grip)
+// ---- MG996R SERVO (standard; change only for another servo) ----------------
+servo_body_l      = 40.5;  // body length
+servo_body_w      = 20.0;  // body width
+servo_shaft_off   = 10.0;  // output-shaft offset from body length-center
+servo_horn_dia    = 24.0;  // round horn outer diameter
+servo_horn_th     = 5.0;   // horn thickness (sits in coupler recess)
+servo_mh_dia      = 4.3;   // flange mount-hole dia (M4)
+servo_mh_span_l   = 49.5;  // flange hole spacing along length
+servo_mh_span_w   = 10.0;  // flange hole spacing across width
+servo_clear_w     = 21.0;  // body slot width in the plate (body + clearance)
+servo_clear_l     = 41.5;  // body slot length in the plate
 
-// MG996R servo dimensions (standard, don't change unless different servo)
-servo_body_l        = 40.5;    // length (along shaft axis)
-servo_body_w        = 20.0;    // width
-servo_body_h        = 38.0;    // height (bottom to top of case, excl shaft)
-servo_flange_l      = 54.5;    // total length including mounting flanges
-servo_flange_w      = 20.0;    // flange width (same as body)
-servo_flange_h      = 2.5;     // flange thickness
-servo_flange_z      = 28.0;    // height from bottom to flange underside
-servo_shaft_offset  = 10.0;    // shaft center offset from body center (along L)
-servo_shaft_dia     = 6.0;     // output shaft diameter
-servo_horn_dia      = 25.0;    // horn circle diameter (for clearance)
-servo_mount_hole    = 4.5;     // mounting screw hole diameter (M4)
-servo_mount_spacing_l = 49.0;  // hole-to-hole along length
-servo_mount_spacing_w = 10.0;  // hole-to-hole along width
+// ---- PLATES + CAGE ---------------------------------------------------------
+plate_l           = 72.0;  // plate length (X)
+plate_w           = 52.0;  // plate width  (Y)
+plate_th          = 6.0;   // plate thickness
+corner_inset      = 7.0;   // standoff hole inset from plate corners
+standoff_hole     = 4.4;   // M4 clearance for the standoff rods
+standoff_od       = 9.0;   // printed-standoff outer diameter (if used)
 
-// Clamp design
-clamp_wall          = 5.0;     // wall thickness of the clamp halves
-clamp_bolt_dia      = 4.5;     // M4 bolt holes to join halves
-clamp_bolt_count    = 2;       // bolts per side (top & bottom)
-clamp_bolt_margin   = 6.0;     // distance from clamp end to bolt center
-clamp_gap           = 0.4;     // split gap (accounts for print tolerance)
+// ---- STEM COUPLER ----------------------------------------------------------
+coupler_dia       = 22.0;  // coupler outer diameter
+coupler_h         = 16.0;  // coupler height
+coupler_fit       = 0.30;  // clearance on the stem flats (print tolerance)
+horn_screw_dia    = 2.6;   // self-tap holes for horn screws (M2.5/M3)
+horn_screw_pcd    = 14.0;  // horn screw pitch-circle diameter
+horn_screw_n      = 4;     // number of horn screws
 
-// Platform
-platform_thickness  = 5.0;     // thickness of the servo mounting plate
-platform_standoff_h = 10.0;    // height of standoffs above clamp top
-standoff_dia        = 10.0;    // standoff outer diameter
-standoff_hole_dia   = 4.5;     // M4 through-hole in standoffs
+// ---- misc ------------------------------------------------------------------
+eps = 0.01;
+$fn = 96;
 
-// Coupler arm
-coupler_length      = 35.0;    // center-to-center (servo shaft to valve handle)
-coupler_width       = 12.0;    // arm width
-coupler_thickness   = 8.0;     // arm thickness
-horn_bore_dia       = 6.2;     // bore for the servo horn hub (press-fit)
-horn_screw_dia      = 3.2;     // M3 screw to hold horn in coupler
+// ============================ DERIVED ========================================
+// Standoff hole centers (shared by both plates so the cage lines up).
+sx = plate_l/2 - corner_inset;
+sy = plate_w/2 - corner_inset;
+standoff_pts = [[ sx, sy], [-sx, sy], [-sx,-sy], [ sx,-sy]];
 
-// Rendering quality
-$fn = 64;
+// Servo body center is offset so the output SHAFT lands on the plate center
+// (= the valve stem axis). MG996R shaft is servo_shaft_off from body center.
+servo_cx = -servo_shaft_off;
 
-// ---- DERIVED VALUES --------------------------------------------------------
-clamp_od = valve_body_od + 2 * clamp_wall;
-clamp_r  = clamp_od / 2;
-valve_r  = valve_body_od / 2;
-
-// =============================================================================
-//  MODULE: clamp_half
-//  One half of the two-piece clamp. Print 2x, bolt together around valve body.
-// =============================================================================
-module clamp_half() {
-    difference() {
-        union() {
-            // Main semicircular body
-            difference() {
-                cylinder(h = valve_body_length, r = clamp_r);
-                cylinder(h = valve_body_length + 1, r = valve_r + 0.2); // bore + clearance
-                // Cut away the other half
-                translate([-clamp_r - 1, -clamp_r - 1, -0.5])
-                    cube([clamp_od + 2, clamp_r + 1 - clamp_gap/2, valve_body_length + 1]);
-            }
-            // Bolt flanges (flat ears sticking out for the clamping bolts)
-            for (z = [clamp_bolt_margin, valve_body_length - clamp_bolt_margin]) {
-                translate([0, clamp_r - 1, z])
-                    rotate([-90, 0, 0])
-                        cylinder(h = clamp_wall, r = clamp_bolt_dia + 2);
-                translate([0, -(clamp_r - 1) - clamp_wall, z])
-                    rotate([-90, 0, 0])
-                        cylinder(h = clamp_wall, r = clamp_bolt_dia + 2);
-            }
-        }
-        // Bolt holes through the flanges
-        for (z = [clamp_bolt_margin, valve_body_length - clamp_bolt_margin]) {
-            translate([0, -clamp_r - clamp_wall - 1, z])
-                rotate([-90, 0, 0])
-                    cylinder(h = clamp_od + 2 * clamp_wall + 2, d = clamp_bolt_dia);
-        }
+// ============================ HELPERS ========================================
+// Vertical prism shaped like the valve stem: a cylinder with two flats.
+module stem_profile(d, across, h) {
+    intersection() {
+        cylinder(h = h, d = d);
+        cube([d + 1, across, 2*h], center = true);
     }
 }
 
-// =============================================================================
-//  MODULE: servo_platform
-//  Mounts on top of the assembled clamp via standoffs. Holds the MG996R.
-// =============================================================================
-module servo_platform() {
-    plate_l = servo_flange_l + 10;
-    plate_w = max(clamp_od + 10, servo_flange_w + 10);
+module corner_holes(d) {
+    for (p = standoff_pts)
+        translate([p[0], p[1], -eps])
+            cylinder(h = plate_th + 2*eps, d = d);
+}
 
+// ===================== PART 1: BOTTOM PLATE =================================
+// The valve body seats in a shallow circular pocket; the pipe escapes through
+// side slots. Four corner holes anchor the standoffs.
+module bottom_plate() {
+    color("Silver")
     difference() {
-        union() {
-            // Main plate
-            translate([-plate_l/2, -plate_w/2, 0])
-                cube([plate_l, plate_w, platform_thickness]);
+        // plate
+        translate([-plate_l/2, -plate_w/2, 0])
+            cube([plate_l, plate_w, plate_th]);
 
-            // Standoffs (connect down to clamp bolt positions)
-            for (x = [-servo_mount_spacing_l/2, servo_mount_spacing_l/2]) {
-                for (y = [-servo_mount_spacing_w/2, servo_mount_spacing_w/2]) {
-                    translate([x, y, -platform_standoff_h])
-                        cylinder(h = platform_standoff_h, d = standoff_dia);
-                }
-            }
-        }
+        // shallow seat pocket so the valve body cannot slide around
+        translate([0, 0, plate_th - 2.5])
+            cylinder(h = 2.5 + eps, d = valve_body_od + 0.6);
 
-        // Servo body pocket (recessed into the plate for stability)
-        translate([-servo_body_l/2, -servo_body_w/2, -1])
-            cube([servo_body_l, servo_body_w, platform_thickness + 2]);
+        // central bore (lets the lower stem / body boss clear if needed)
+        translate([0,0,-eps])
+            cylinder(h = plate_th + 2*eps, d = pipe_od + 2);
 
-        // Servo mounting screw holes (M4 through flanges)
-        for (x = [-servo_mount_spacing_l/2, servo_mount_spacing_l/2]) {
-            for (y = [-servo_mount_spacing_w/2, servo_mount_spacing_w/2]) {
-                translate([x, y, -platform_standoff_h - 1])
-                    cylinder(h = platform_standoff_h + platform_thickness + 2,
-                             d = servo_mount_hole);
-            }
-        }
+        // pipe pass-through slots on +X / -X edges
+        for (mx = [1, -1])
+            translate([mx*plate_l/2, 0, plate_th/2])
+                rotate([0,90,0])
+                    cylinder(h = 24, d = pipe_od + 1.5, center = true);
 
-        // Shaft clearance hole (servo output shaft + horn pass through)
-        translate([servo_shaft_offset, 0, -1])
-            cylinder(h = platform_thickness + 2, d = servo_horn_dia + 4);
-
-        // Standoff bolt holes (M4, for attaching to clamp)
-        for (x = [-servo_mount_spacing_l/2, servo_mount_spacing_l/2]) {
-            for (y = [-servo_mount_spacing_w/2, servo_mount_spacing_w/2]) {
-                translate([x, y, -platform_standoff_h - 1])
-                    cylinder(h = platform_standoff_h + platform_thickness + 2,
-                             d = standoff_hole_dia);
-            }
-        }
+        corner_holes(standoff_hole);
     }
 }
 
-// =============================================================================
-//  MODULE: coupler_arm
-//  Links the servo horn to the valve handle. Transmits the 90-degree rotation.
-// =============================================================================
-module coupler_arm() {
+// ===================== PART 2: TOP PLATE ====================================
+// Holds the servo (shaft centered on the stem axis) and clears the coupler.
+module top_plate() {
+    color("Gainsboro")
     difference() {
-        union() {
-            // Main arm body
-            hull() {
-                // Servo end (circular)
-                cylinder(h = coupler_thickness, d = coupler_width);
-                // Valve handle end (circular)
-                translate([coupler_length, 0, 0])
-                    cylinder(h = coupler_thickness, d = coupler_width);
-            }
+        translate([-plate_l/2, -plate_w/2, 0])
+            cube([plate_l, plate_w, plate_th]);
 
-            // Boss around horn bore (thicker for grip)
-            cylinder(h = coupler_thickness + 2, d = coupler_width - 2);
-        }
+        // servo body slot (body drops through; flanges rest on the plate top)
+        translate([servo_cx, 0, -eps])
+            translate([-servo_clear_l/2, -servo_clear_w/2, 0])
+                cube([servo_clear_l, servo_clear_w, plate_th + 2*eps]);
 
-        // Servo horn bore (round hole to accept the horn hub)
-        translate([0, 0, -1])
-            cylinder(h = coupler_thickness + 4, d = horn_bore_dia);
+        // servo flange mounting holes (4, around the body slot)
+        for (mx = [1,-1])
+            for (my = [1,-1])
+                translate([servo_cx + mx*servo_mh_span_l/2,
+                           my*servo_mh_span_w/2, -eps])
+                    cylinder(h = plate_th + 2*eps, d = servo_mh_dia);
 
-        // Horn retaining screw (M3 from top, threads into horn)
-        translate([0, 0, coupler_thickness - 2])
-            cylinder(h = 5, d = horn_screw_dia);
-
-        // Valve handle slot (D-shape / rectangular to grip the flat handle)
-        translate([coupler_length - handle_width/2,
-                   -handle_thickness/2, -1])
-            cube([handle_width, handle_thickness, coupler_thickness + 2]);
-
-        // Pinch slot on valve end (allows slight flex for handle grip)
-        translate([coupler_length - 0.5, -coupler_width/2, -1])
-            cube([1.0, coupler_width, coupler_thickness + 2]);
+        corner_holes(standoff_hole);
     }
 }
 
-// =============================================================================
-//  MODULE: assembled_view
-//  Shows all parts in their assembled positions (for visualization only).
-// =============================================================================
+// ===================== PART 3: STEM COUPLER =================================
+// Bottom: socket matching the valve stem double-D. Top: recess + screw holes
+// for the servo horn. Servo turns horn -> turns coupler -> turns stem.
+module stem_coupler() {
+    color("LimeGreen")
+    difference() {
+        cylinder(h = coupler_h, d = coupler_dia);
+
+        // stem socket (bottom)
+        translate([0,0,-eps])
+            stem_profile(stem_dia + coupler_fit,
+                         stem_flat_across + coupler_fit,
+                         stem_flat_len + 1);
+
+        // servo-horn recess (top)
+        translate([0,0,coupler_h - servo_horn_th])
+            cylinder(h = servo_horn_th + eps, d = servo_horn_dia + 0.6);
+
+        // central clearance through-hole
+        translate([0,0,-eps])
+            cylinder(h = coupler_h + 2*eps, d = 4.2);
+
+        // horn fixing screws
+        for (i = [0:horn_screw_n-1])
+            rotate([0,0, i*360/horn_screw_n])
+                translate([horn_screw_pcd/2, 0, coupler_h - servo_horn_th - 6])
+                    cylinder(h = 6 + eps, d = horn_screw_dia);
+    }
+}
+
+// ===================== PART 4: STANDOFF (optional printed) ==================
+// Use 4. If you prefer metal M4 threaded rod + nuts (like the yellow rods in
+// the photo), skip printing these and set the rod length = valve_body_h.
+module standoff() {
+    color("Goldenrod")
+    difference() {
+        cylinder(h = valve_body_h, d = standoff_od);
+        translate([0,0,-eps])
+            cylinder(h = valve_body_h + 2*eps, d = standoff_hole);
+    }
+}
+
+// ===================== GHOST REFERENCE (not printed) ========================
+module ghost_valve() {
+    %union() {
+        // body
+        translate([0,0,-valve_body_h + plate_th])  // sit on bottom plate top
+            cylinder(h = valve_body_h, d = valve_body_od);
+        // pipe out both sides
+        translate([0,0,-valve_body_h/2 + plate_th])
+            rotate([0,90,0])
+                cylinder(h = plate_l + 30, d = pipe_od, center = true);
+        // stem up
+        translate([0,0,plate_th])
+            stem_profile(stem_dia, stem_flat_across, stem_top_z);
+    }
+}
+
+module ghost_servo() {
+    %color("IndianRed")
+    translate([servo_cx, 0, valve_body_h + plate_th*2 + 1])
+        translate([-servo_body_l/2, -servo_body_w/2, 0])
+            cube([servo_body_l, servo_body_w, 38]);
+}
+
+// ============================ VIEWS =========================================
 module assembled_view() {
-    color("DodgerBlue", 0.7) {
-        // Bottom clamp half
-        clamp_half();
-        // Top clamp half (rotated 180 around Z)
-        rotate([0, 0, 180]) clamp_half();
-    }
+    // bottom plate at z=0
+    bottom_plate();
 
-    // Platform above the clamp
-    color("Orange", 0.8)
-        translate([0, 0, valve_body_length + platform_standoff_h])
-            servo_platform();
+    // standoffs rise from the bottom plate top
+    translate([0,0,plate_th])
+        for (p = standoff_pts) translate([p[0], p[1], 0]) standoff();
 
-    // Coupler arm above the platform (at shaft height)
-    color("LimeGreen", 0.9)
-        translate([servo_shaft_offset,
-                   0,
-                   valve_body_length + platform_standoff_h + platform_thickness + 2])
-            coupler_arm();
+    // top plate on top of the standoffs
+    translate([0,0,plate_th + valve_body_h]) top_plate();
 
-    // Ghost: valve body (for reference, not printed)
-    %cylinder(h = valve_body_length, r = valve_r);
+    // stem coupler: sits on the stem, just under the top plate
+    translate([0,0,plate_th + (stem_top_z - stem_flat_len)])
+        stem_coupler();
 
-    // Ghost: valve handle (for reference)
-    %translate([-coupler_length + servo_shaft_offset, -handle_thickness/2,
-                valve_body_length + platform_standoff_h + platform_thickness + handle_height])
-        cube([handle_width, handle_thickness, 20]);
+    ghost_valve();
+    ghost_servo();
 }
 
-// =============================================================================
-//  MODULE: print_plate
-//  Lays all parts flat for 3D printing on one build plate.
-// =============================================================================
 module print_plate() {
-    spacing = clamp_od + 15;
-
-    // Clamp half 1
-    translate([0, 0, 0])
-        rotate([90, 0, 0])
-            clamp_half();
-
-    // Clamp half 2
-    translate([spacing, 0, 0])
-        rotate([90, 0, 0])
-            rotate([0, 0, 180])
-                clamp_half();
-
-    // Servo platform (flat, as-is)
-    translate([0, -spacing, 0])
-        servo_platform();
-
-    // Coupler arm (flat, as-is)
-    translate([spacing, -spacing, 0])
-        coupler_arm();
+    g = plate_l/2 + 10;
+    translate([-g, 0, 0]) bottom_plate();
+    translate([ g, 0, 0]) top_plate();
+    translate([-g, plate_w, 0]) stem_coupler();
+    for (i = [0:3])
+        translate([ g - 18 + i*12, plate_w, 0]) standoff();
 }
 
-// =============================================================================
-//  RENDER SELECTION
-//  Uncomment ONE of these to render/export individual STLs or view assembly.
-// =============================================================================
-
-// Option 1: Full assembled view (default - for visualization)
+// ============================ RENDER SELECT =================================
+// Show ONE. Default = assembled visualization.
 assembled_view();
 
-// Option 2: Print plate (all parts laid flat for slicing)
+// --- For STL export: comment assembled_view() and uncomment ONE -------------
+// bottom_plate();
+// top_plate();
+// stem_coupler();
+// standoff();
 // print_plate();
-
-// Option 3: Individual parts (uncomment one for STL export)
-// clamp_half();
-// servo_platform();
-// coupler_arm();
