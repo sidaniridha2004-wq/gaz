@@ -1,4 +1,4 @@
-name: Export compact video analysis assets
+name: Export tiny video review assets
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Prepare compact visual and audio assets
+      - name: Prepare tiny review assets
         shell: bash
         run: |
           set -euo pipefail
@@ -25,19 +25,20 @@ jobs:
           rm -rf video-analysis
           mkdir -p video-analysis
           ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json video_2026-09-13_13-35-33.mp4 > video-analysis/metadata.json
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=2,scale=120:-2,tile=4x4:padding=2:margin=2:color=black" -frames:v 1 -q:v 10 video-analysis/contact-sheet.jpg
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 22050 -c:a libmp3lame -b:a 32k video-analysis/audio.mp3
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=0.5,scale=80:-2,tile=4x2:padding=2:margin=2:color=black" -frames:v 1 -q:v 16 video-analysis/contact-sheet.jpg
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 16k video-analysis/audio.mp3
+          ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -vn -af "ebur128=peak=true" -f null - 2> video-analysis/loudness.txt || true
           base64 -w 0 video-analysis/contact-sheet.jpg > video-analysis/contact-sheet.jpg.b64
           base64 -w 0 video-analysis/audio.mp3 > video-analysis/audio.mp3.b64
           sha256sum video_2026-09-13_13-35-33.mp4 > video-analysis/source-sha256.txt
           rm video-analysis/contact-sheet.jpg video-analysis/audio.mp3
 
-      - name: Commit compact assets
+      - name: Commit tiny assets
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A video-analysis
-          git commit -m "Create compact video analysis assets"
+          git commit -m "Create tiny video review assets"
           git push
