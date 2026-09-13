@@ -17,36 +17,35 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install analysis dependencies
-        run: |
-          python -m pip install --quiet --upgrade pip
-          python -m pip install --quiet 'transformers==4.40.2' torch torchvision pillow librosa opencv-python-headless scikit-learn
-
-      - name: Analyze visuals, motion, scenes, and music
+      - name: Extract technical style report
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p video-analysis/frames
-          ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json video_2026-09-13_13-35-33.mp4 > video-analysis/metadata.json
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 22050 -c:a pcm_s16le video-analysis/audio.wav
-          for item in "0 0.0" "1 2.5" "2 5.0" "3 7.5" "4 10.0" "5 12.5" "6 14.0"; do
-            set -- $item
-            ffmpeg -hide_banner -loglevel error -ss "$2" -i video_2026-09-13_13-35-33.mp4 -frames:v 1 -vf "scale=384:-2" -q:v 3 "video-analysis/frames/frame-$1.jpg"
-          done
-          ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -vf "select='gt(scene,0.15)',showinfo" -an -f null - 2> video-analysis/scene-raw.txt || true
-          grep -oE 'pts_time:[0-9.]+' video-analysis/scene-raw.txt | sed 's/pts_time:/scene_change_seconds=/' > video-analysis/scenes.txt || true
-          python .github/workflows/analyze_reference.py
-          rm -f video-analysis/audio.wav video-analysis/scene-raw.txt
+          mkdir -p video-analysis
+          {
+            echo '=== METADATA ==='
+            ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of default=noprint_wrappers=1 video_2026-09-13_13-35-33.mp4
+            echo '=== SCENE CHANGES ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -vf "select='gt(scene,0.12)',showinfo" -an -f null - 2>&1 | grep -oE 'pts_time:[0-9.]+' || true
+            echo '=== AUDIO VOLUME ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -af volumedetect -vn -f null - 2>&1 | grep -E 'mean_volume|max_volume|histogram' || true
+            echo '=== AUDIO SILENCE ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -af silencedetect=n=-42dB:d=0.15 -vn -f null - 2>&1 | grep -E 'silence_start|silence_end|silence_duration' || true
+            echo '=== AUDIO LOUDNESS ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -af ebur128=peak=true -vn -f null - 2>&1 | tail -n 20 || true
+            echo '=== AUDIO SPECTRAL/LEVEL STATS ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -af astats=metadata=1:reset=0 -vn -f null - 2>&1 | grep -E 'RMS level dB|Peak level dB|Zero crossings rate|Dynamic range|Flat factor|Entropy' || true
+            echo '=== VIDEO COLOR STATS AT 1 FPS ==='
+            ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -vf "fps=1,signalstats,metadata=print" -an -f null - 2>&1 | grep -E 'pts_time|lavfi.signalstats.(YAVG|UAVG|VAVG|SATAVG|YHIGH|YLOW)' || true
+          } > video-analysis/basic-report.txt
           sha256sum video_2026-09-13_13-35-33.mp4 > video-analysis/source-sha256.txt
 
-      - name: Commit text analysis
+      - name: Commit technical analysis
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A video-analysis
-          git commit -m "Analyze reference video visuals and music"
+          git add video-analysis/basic-report.txt video-analysis/source-sha256.txt
+          git commit -m "Create technical reference video report"
           git push
-
-# Analysis script is committed before this trigger.
