@@ -1,4 +1,4 @@
-name: Export video analysis assets
+name: Export compact video analysis assets
 
 on:
   push:
@@ -17,28 +17,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Prepare visual and audio assets
+      - name: Prepare compact visual and audio assets
         shell: bash
         run: |
           set -euo pipefail
           command -v ffmpeg >/dev/null || { sudo apt-get update && sudo apt-get install -y ffmpeg; }
+          rm -rf video-analysis
           mkdir -p video-analysis
           ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json video_2026-09-13_13-35-33.mp4 > video-analysis/metadata.json
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=2,scale=240:-2,tile=4x4:padding=4:margin=4:color=black" -frames:v 1 -q:v 4 video-analysis/contact-sheet.jpg
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -c:a libmp3lame -b:a 96k video-analysis/audio.mp3
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -lavfi "showspectrumpic=s=900x450:legend=0:color=viridis" -frames:v 1 video-analysis/spectrogram.png
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=2,scale=120:-2,tile=4x4:padding=2:margin=2:color=black" -frames:v 1 -q:v 10 video-analysis/contact-sheet.jpg
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 22050 -c:a libmp3lame -b:a 32k video-analysis/audio.mp3
           base64 -w 0 video-analysis/contact-sheet.jpg > video-analysis/contact-sheet.jpg.b64
           base64 -w 0 video-analysis/audio.mp3 > video-analysis/audio.mp3.b64
-          base64 -w 0 video-analysis/spectrogram.png > video-analysis/spectrogram.png.b64
           sha256sum video_2026-09-13_13-35-33.mp4 > video-analysis/source-sha256.txt
-          rm video-analysis/contact-sheet.jpg video-analysis/audio.mp3 video-analysis/spectrogram.png
+          rm video-analysis/contact-sheet.jpg video-analysis/audio.mp3
 
-      - name: Commit analysis assets
+      - name: Commit compact assets
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add video-analysis
-          git commit -m "Temporarily export video analysis assets"
+          git add -A video-analysis
+          git commit -m "Create compact video analysis assets"
           git push
