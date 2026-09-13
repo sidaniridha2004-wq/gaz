@@ -1,4 +1,4 @@
-name: Export tiny video review assets
+name: Export directly viewable video review assets
 
 on:
   push:
@@ -17,28 +17,28 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Prepare tiny review assets
+      - name: Prepare review assets
         shell: bash
         run: |
           set -euo pipefail
           command -v ffmpeg >/dev/null || { sudo apt-get update && sudo apt-get install -y ffmpeg; }
           rm -rf video-analysis
-          mkdir -p video-analysis
+          mkdir -p video-analysis/frames
           ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json video_2026-09-13_13-35-33.mp4 > video-analysis/metadata.json
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=0.5,scale=80:-2,tile=4x2:padding=2:margin=2:color=black" -frames:v 1 -q:v 16 video-analysis/contact-sheet.jpg
-          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 16k video-analysis/audio.mp3
-          ffmpeg -hide_banner -i video_2026-09-13_13-35-33.mp4 -vn -af "ebur128=peak=true" -f null - 2> video-analysis/loudness.txt || true
-          base64 -w 0 video-analysis/contact-sheet.jpg > video-analysis/contact-sheet.jpg.b64
-          base64 -w 0 video-analysis/audio.mp3 > video-analysis/audio.mp3.b64
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vf "fps=2,scale=120:-2,tile=4x4:padding=2:margin=2:color=black" -frames:v 1 -q:v 10 video-analysis/contact-sheet.jpg
+          ffmpeg -hide_banner -loglevel error -i video_2026-09-13_13-35-33.mp4 -vn -ac 1 -ar 22050 -c:a libmp3lame -b:a 32k video-analysis/audio.mp3
+          for item in "0 0.0" "1 2.5" "2 5.0" "3 7.5" "4 10.0" "5 12.5" "6 14.0"; do
+            set -- $item
+            ffmpeg -hide_banner -loglevel error -ss "$2" -i video_2026-09-13_13-35-33.mp4 -frames:v 1 -vf "scale=240:-2" -q:v 8 "video-analysis/frames/frame-$1.jpg"
+          done
           sha256sum video_2026-09-13_13-35-33.mp4 > video-analysis/source-sha256.txt
-          rm video-analysis/contact-sheet.jpg video-analysis/audio.mp3
 
-      - name: Commit tiny assets
+      - name: Commit review assets
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A video-analysis
-          git commit -m "Create tiny video review assets"
+          git commit -m "Create directly viewable video review assets"
           git push
